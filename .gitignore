@@ -1,0 +1,95 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+dist/
+*.spec
+
+# Installer logs
+debug.log
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+.venv/pyvenv.cfg
+.venv/Scripts/activate
+.venv/Scripts/activate.bat
+.venv/Scripts/Activate.ps1
+.venv/Scripts/deactivate.bat
+.venv/Scripts/dumppdf.py
+.venv/Scripts/f2py.exe
+.venv/Scripts/jsonschema.exe
+.venv/Scripts/markdown-it.exe
+.venv/Scripts/normalizer.exe
+.venv/Scripts/numpy-config.exe
+.venv/Scripts/pdf2txt.py
+.venv/Scripts/pdfplumber.exe
+.venv/Scripts/pip.exe
+.venv/Scripts/pip3.12.exe
+.venv/Scripts/pip3.exe
+.venv/Scripts/pygmentize.exe
+.venv/Scripts/pypdfium2.exe
+.venv/Scripts/python.exe
+.venv/Scripts/pythonw.exe
+.venv/Scripts/streamlit.cmd
+.venv/Scripts/streamlit.exe
+.venv/Scripts/watchmedo.exe
+.venv/etc/jupyter/nbconfig/notebook.d/pydeck.json
+.venv/share/jupyter/nbextensions/pydeck/extensionRequires.js
+.venv/share/jupyter/nbextensions/pydeck/index.js
+.venv/share/jupyter/nbextensions/pydeck/index.js.map
