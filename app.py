@@ -7,6 +7,21 @@ import os
 from datetime import datetime
 import io
 import traceback
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', filename='app.log', filemode='a')
+logger = logging.getLogger(__name__)
+
+# Configure logging to print to the console
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
+
+# Remove file handler
+logger.removeHandler(logger.handlers[0])
 
 # Configure Streamlit page
 st.set_page_config(
@@ -28,6 +43,7 @@ def save_uploaded_file(uploaded_file):
     except Exception as e:
         if temp_path and os.path.exists(temp_path):
             os.unlink(temp_path)
+        logger.error(f"Error saving {uploaded_file.name}: {str(e)}")
         st.error(f"Error saving {uploaded_file.name}: {str(e)}")
         return None
 
@@ -60,6 +76,7 @@ if uploaded_files:
     for uploaded_file in uploaded_files:
         temp_path = None
         try:
+            logger.info(f"Processing: {uploaded_file.name}")
             st.info(f"Processing: {uploaded_file.name}")
             
             # Save uploaded file
@@ -80,6 +97,7 @@ if uploaded_files:
                 # Parse invoices
                 invoices = parser.parse_content(content)
                 if not invoices:
+                    logger.warning(f"No valid invoices found in {uploaded_file.name}")
                     st.warning(f"No valid invoices found in {uploaded_file.name}")
                     continue
                     
@@ -97,24 +115,35 @@ if uploaded_files:
                         with st.expander(f"Generated 997 Content - {uploaded_file.name}"):
                             display_edi_content(ack_997, "997 Functional Acknowledgment")
                     else:
+                        logger.warning(f"Could not generate 997 for {uploaded_file.name}: Missing required segments")
                         st.warning(f"Could not generate 997 for {uploaded_file.name}: Missing required segments")
                         if not isa:
+                            logger.error("Missing ISA (Interchange Control Header) segment")
                             st.error("Missing ISA (Interchange Control Header) segment")
                         if not st_seg:
+                            logger.error("Missing ST (Transaction Set Header) segment")
                             st.error("Missing ST (Transaction Set Header) segment")
                         if not gs:
+                            logger.error("Missing GS (Functional Group Header) segment")
                             st.error("Missing GS (Functional Group Header) segment")
                 except Exception as e:
+                    logger.error(f"Error generating 997 for {uploaded_file.name}: {str(e)}")
+                    logger.error(f"Traceback:\n{traceback.format_exc()}")
                     st.error(f"Error generating 997 for {uploaded_file.name}: {str(e)}")
                     st.error(f"Traceback:\n{traceback.format_exc()}")
                 
             except Exception as e:
+                logger.error(f"Error parsing invoice {uploaded_file.name}: {str(e)}")
+                logger.error(f"Traceback:\n{traceback.format_exc()}")
                 st.error(f"Error parsing invoice {uploaded_file.name}: {str(e)}")
                 st.error(f"Traceback:\n{traceback.format_exc()}")
             
+            logger.info(f"Successfully processed {uploaded_file.name}")
             st.success(f"Successfully processed {uploaded_file.name}")
             
         except Exception as e:
+            logger.error(f"Failed to process {uploaded_file.name}: {str(e)}")
+            logger.error(f"Traceback:\n{traceback.format_exc()}")
             st.error(f"Failed to process {uploaded_file.name}: {str(e)}")
             st.error(f"Traceback:\n{traceback.format_exc()}")
         finally:
@@ -167,4 +196,5 @@ if uploaded_files:
                         key=f"997_{original_file}"  # Unique key for each button
                     )
     else:
+        logger.warning("No valid invoices found in any of the uploaded files.")
         st.warning("No valid invoices found in any of the uploaded files.")

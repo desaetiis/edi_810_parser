@@ -3,6 +3,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 import pandas as pd
+import streamlit as st
 
 @dataclass
 class EDILineItem:
@@ -171,7 +172,8 @@ class EDI810Parser:
                 elif segment_id == 'TXI':
                     # Tax information
                     if current_invoice and len(elements) > 2:
-                        tax_amount = Decimal(elements[2]) / Decimal('100')
+                        # TXI amounts are in dollars, not cents
+                        tax_amount = Decimal(elements[2])
                         tax = {'type': elements[1], 'amount': tax_amount, 'description': 'Tax'}
                         if current_line_item:
                             current_line_item.add_tax(tax)
@@ -194,20 +196,50 @@ class EDI810Parser:
                         # Verify totals match
                         calculated_total = current_invoice.calculate_total()
                         if abs(calculated_total - total_amount) > Decimal('0.02'):
-                            print(f"Warning: Total mismatch for invoice {current_invoice.invoice_number}")
-                            print(f"Expected: {total_amount}, Calculated: {calculated_total}")
-                            print("Line items:")
-                            for item in current_invoice.line_items:
-                                print(f"  Line {item.line_number}: {item.total_amount}")
-                            print("Allowances:")
-                            for allowance in current_invoice.allowances:
-                                print(f"  {allowance['description']}: {allowance['amount']}")
-                            print("Taxes:")
-                            for tax in current_invoice.taxes:
-                                print(f"  {tax['description']}: {tax['amount']}")
-                
+                            with st.expander(f"Mismatch Details for Invoice {current_invoice.invoice_number}"):
+                                # Header with basic mismatch info
+                                st.code(f"Total Mismatch for Invoice {current_invoice.invoice_number}\n" +
+                                      f"Expected (TDS): {total_amount}\n" +
+                                      f"Calculated:     {calculated_total}\n" +
+                                      f"Difference:     {abs(calculated_total - total_amount)}\n")
+                                
+                                # Detailed breakdown of line items
+                                line_items_detail = ["Line Items Breakdown:"]
+                                line_items_subtotal = Decimal('0')
+                                for item in current_invoice.line_items:
+                                    base_amount = item.quantity * item.unit_price
+                                    item_allowances = sum((a['amount'] for a in item.allowances), Decimal('0'))
+                                    item_taxes = sum((t['amount'] for t in item.taxes), Decimal('0'))
+                                    line_total = base_amount + item_allowances + item_taxes
+                                    line_items_subtotal += line_total
+                                    
+                                    line_items_detail.append(
+                                        f"  Line {item.line_number}:\n" +
+                                        f"    Quantity: {item.quantity} × Price: {item.unit_price} = Base: {base_amount}\n" +
+                                        f"    Allowances: {item_allowances}\n" +
+                                        f"    Taxes: {item_taxes}\n" +
+                                        f"    Line Total: {line_total}"
+                                    )
+                                line_items_detail.append(f"Line Items Subtotal: {line_items_subtotal}\n")
+                                st.code("\n".join(line_items_detail))
+                                
+                                # Invoice level charges
+                                invoice_allowances = sum((a['amount'] for a in current_invoice.allowances), Decimal('0'))
+                                invoice_taxes = sum((t['amount'] for t in current_invoice.taxes), Decimal('0'))
+                                
+                                st.code("Invoice Level Charges:\n" +
+                                      f"  Allowances: {invoice_allowances}\n" +
+                                      f"  Taxes: {invoice_taxes}\n")
+                                
+                                # Final calculation breakdown
+                                st.code("Final Calculation:\n" +
+                                      f"  Line Items Subtotal: {line_items_subtotal}\n" +
+                                      f"  Invoice Allowances: {invoice_allowances}\n" +
+                                      f"  Invoice Taxes: {invoice_taxes}\n" +
+                                      f"  Calculated Total: {calculated_total}")
+
             except Exception as e:
-                print(f"Error processing segment {segment_id}: {str(e)}")
+                st.warning(f"Error processing segment {segment_id}: {str(e)}")
                 continue
         
         return invoices
@@ -265,7 +297,7 @@ class EDI810Parser:
                     'description': description
                 }
             except (IndexError, ValueError) as e:
-                print(f"Warning: Error parsing SAC segment '{segment}': {str(e)}")
+                st.warning(f"Warning: Error parsing SAC segment '{segment}': {str(e)}")
                 return None
         return None
 
