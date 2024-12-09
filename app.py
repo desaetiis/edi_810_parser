@@ -63,7 +63,7 @@ def display_edi_content(content: str, title: str):
 # File uploader
 uploaded_files = st.file_uploader(
     "Upload EDI files", 
-    type=['txt', 'edi', '810'], 
+    type=['txt', 'edi', '810', '791559380'], 
     accept_multiple_files=True,
     help="Upload your EDI X12 810 (Invoice) files"
 )
