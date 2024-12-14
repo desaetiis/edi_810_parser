@@ -90,19 +90,19 @@ class EDI810Parser:
             
             try:
                 if segment_id == 'ISA':
-                    self.original_segments['ISA'] = segment + self.segment_terminator
+                    self.original_segments['ISA'] = segment.strip()
                     sender_id = elements[6]
                     receiver_id = elements[8]
                     interchange_control_number = elements[13]
                     
                 elif segment_id == 'GS':
-                    self.original_segments['GS'] = segment + self.segment_terminator
+                    self.original_segments['GS'] = segment.strip()
                     
                 elif segment_id == 'ST':
-                    self.original_segments['ST'] = segment + self.segment_terminator
+                    self.original_segments['ST'] = segment.strip()
                     
                 elif segment_id == 'GE':
-                    self.original_segments['GE'] = segment + self.segment_terminator
+                    self.original_segments['GE'] = segment.strip()
                     
                 elif segment_id == 'BIG':
                     # Start new invoice
@@ -361,10 +361,6 @@ class EDI810Parser:
                 rows.append(row)
         return pd.DataFrame(rows)
 
-    def get_997_segments(self) -> tuple:
+    def get_997_segments(self) -> Dict[str, str]:
         """Get segments needed for 997 generation"""
-        return (
-            self.original_segments['ISA'],
-            self.original_segments['ST'],
-            self.original_segments.get('GS', None)
-        )
+        return self.original_segments
