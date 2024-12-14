@@ -182,6 +182,10 @@ def process_sftp_file(sftp, filename):
         except Exception:
             pass
 
+def check_sftp_connection():
+    return st.session_state.get('sftp_connected', False)
+
+
 # Sidebar for SFTP configuration
 with st.sidebar:
     with st.expander("SFTP Configuration", expanded=False):
@@ -192,6 +196,13 @@ with st.sidebar:
         st.session_state['sftp_password'] = st.text_input("SFTP Password", type="password", value=st.session_state.get('sftp_password', ''))
         st.session_state['sftp_home_dir'] = st.text_input("Home Directory", value=st.session_state.get('sftp_home_dir', '/'))
 
+        # Display connection status
+        if check_sftp_connection():
+            st.write("🟢 Connected to SFTP")
+        else:
+            st.write("🔴 Disconnected from SFTP")
+
+
         # Connection buttons
         conn_col1, conn_col2 = st.columns(2)
         with conn_col1:
@@ -200,6 +211,7 @@ with st.sidebar:
                 disabled=st.session_state['sftp_connected'],
                 type="primary" if not st.session_state['sftp_connected'] else "secondary"
             )
+
             if connect_button and not st.session_state['sftp_connected']:
                 try:
                     with init_sftp_handler() as sftp:
