@@ -7,7 +7,21 @@ import streamlit as st
 
 @dataclass
 class EDILineItem:
-    """Represents a line item in an EDI invoice"""
+    """
+    Represents a line item in an EDI invoice
+    
+    Args:
+        line_number (str): The line item number
+        quantity (Decimal): The quantity of items
+        unit_price (Decimal): The price per unit
+        uom (str): Unit of measure
+        product_code (str): Product code identifier
+        description (str, optional): Product description. Defaults to empty string
+        total_amount (Decimal, optional): Total amount for the line item. Defaults to 0
+        allowances (List[Dict[str, Any]], optional): List of allowances. Defaults to empty list
+        taxes (List[Dict[str, Any]], optional): List of taxes. Defaults to empty list
+        gl_account (str, optional): GL account number. Defaults to empty string
+    """
     line_number: str
     quantity: Decimal
     unit_price: Decimal
@@ -18,24 +32,71 @@ class EDILineItem:
     allowances: List[Dict[str, Any]] = field(default_factory=list)
     taxes: List[Dict[str, Any]] = field(default_factory=list)
     gl_account: str = ""
+    _transaction_type: str = field(default="", init=False)
 
     def __post_init__(self):
         # Calculate initial total amount
         self.total_amount = self.quantity * self.unit_price
 
+    def set_transaction_type(self, transaction_type: str):
+        """
+        Set the transaction type and adjust amounts accordingly
+        
+        Args:
+            transaction_type (str): The transaction type (e.g., 'CR' for credit)
+        """
+        self._transaction_type = transaction_type
+        if transaction_type == 'CR':
+            self.total_amount = -abs(self.total_amount)
+
     def add_allowance(self, allowance: Dict[str, Any]):
-        """Add allowance and update total"""
+        """
+        Add allowance and update total
+        
+        Args:
+            allowance (Dict[str, Any]): Allowance information
+        """
         self.allowances.append(allowance)
-        self.total_amount += allowance['amount']  # allowances are already negative
+        amount = allowance['amount']
+        if self._transaction_type == 'CR':
+            amount = -abs(amount)
+        self.total_amount += amount
 
     def add_tax(self, tax: Dict[str, Any]):
-        """Add tax and update total"""
+        """
+        Add tax and update total
+        
+        Args:
+            tax (Dict[str, Any]): Tax information
+        """
         self.taxes.append(tax)
-        self.total_amount += tax['amount']
+        amount = tax['amount']
+        if self._transaction_type == 'CR':
+            amount = -abs(amount)
+        self.total_amount += amount
 
 @dataclass
 class EDIInvoice:
-    """Represents an EDI invoice"""
+    """
+    Represents an EDI invoice
+    
+    Args:
+        invoice_number (str): The invoice number
+        invoice_date (datetime): The invoice date
+        po_number (str): Purchase order number
+        total_amount (Decimal): Total invoice amount
+        vendor_name (str, optional): Name of the vendor. Defaults to empty string
+        buyer_name (str, optional): Name of the buyer. Defaults to empty string
+        currency (str, optional): Currency code. Defaults to "USD"
+        sender_id (str, optional): Sender identifier. Defaults to empty string
+        receiver_id (str, optional): Receiver identifier. Defaults to empty string
+        interchange_control_number (str, optional): Control number. Defaults to empty string
+        line_items (List[EDILineItem], optional): List of line items. Defaults to empty list
+        allowances (List[Dict[str, Any]], optional): List of invoice-level allowances. Defaults to empty list
+        taxes (List[Dict[str, Any]], optional): List of invoice-level taxes. Defaults to empty list
+        gl_account (str, optional): GL account number. Defaults to empty string
+        transaction_type (str, optional): Transaction type (e.g., 'CR' for credit). Defaults to empty string
+    """
     invoice_number: str
     invoice_date: datetime
     po_number: str
@@ -50,12 +111,35 @@ class EDIInvoice:
     allowances: List[Dict[str, Any]] = field(default_factory=list)
     taxes: List[Dict[str, Any]] = field(default_factory=list)
     gl_account: str = ""
+    transaction_type: str = ""
+    total_tax: Decimal = field(default=Decimal('0'), init=False)
 
     def calculate_total(self) -> Decimal:
-        """Calculate total amount including all line items, allowances, and taxes"""
-        total = sum((item.total_amount for item in self.line_items), Decimal('0'))
-        total += sum((a['amount'] for a in self.allowances), Decimal('0'))  # allowances are already negative
-        total += sum((t['amount'] for t in self.taxes), Decimal('0'))
+        """
+        Calculate total amount including all line items, allowances, and taxes
+        
+        Returns:
+            Decimal: The total amount
+        """
+        # Calculate line items total without taxes
+        total = sum(((item.quantity * item.unit_price) for item in self.line_items), Decimal('0'))
+        
+        # Add line item allowances
+        total += sum((sum((a['amount'] for a in item.allowances), Decimal('0')) for item in self.line_items), Decimal('0'))
+        
+        # Add invoice level allowances
+        total += sum((a['amount'] for a in self.allowances), Decimal('0'))
+        
+        # Add tax - use total_tax if present, otherwise sum line item taxes
+        if self.total_tax > Decimal('0'):
+            total += self.total_tax
+        else:
+            total += sum((sum((t['amount'] for t in item.taxes), Decimal('0')) for item in self.line_items), Decimal('0'))
+        
+        # Handle credit transactions
+        if self.transaction_type == 'CR':
+            total = -abs(total)
+            
         return total.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
 class EDI810Parser:
@@ -108,7 +192,8 @@ class EDI810Parser:
                     # Start new invoice
                     invoice_date = self.parse_date(elements[1])
                     invoice_number = elements[2]
-                    po_number = elements[4] if len(elements) > 4 else ""
+                    po_number = elements[5] if len(elements) > 5 else ""
+                    transaction_type = elements[-1] if len(elements) > 6 else ""
                     
                     current_invoice = EDIInvoice(
                         invoice_number=invoice_number,
@@ -117,7 +202,8 @@ class EDI810Parser:
                         total_amount=Decimal('0'),
                         sender_id=sender_id,
                         receiver_id=receiver_id,
-                        interchange_control_number=interchange_control_number
+                        interchange_control_number=interchange_control_number,
+                        transaction_type=transaction_type
                     )
                     invoices.append(current_invoice)
                     
@@ -135,6 +221,7 @@ class EDI810Parser:
                         quantity = Decimal(elements[2])
                         unit_price = Decimal(elements[4])
                         description = ""
+                        gl_account = ""
                         
                         # Get description from PO1 segment if available
                         if len(elements) > 9:
@@ -146,8 +233,11 @@ class EDI810Parser:
                             unit_price=unit_price,
                             uom=elements[3],
                             product_code=elements[7],
-                            description=description
+                            description=description,
+                            gl_account=elements[-1]
                         )
+                        # Set transaction type to handle credit amounts
+                        current_line_item.set_transaction_type(current_invoice.transaction_type)
                         current_invoice.line_items.append(current_line_item)
                         
                 elif segment_id == 'PID':
@@ -172,15 +262,33 @@ class EDI810Parser:
                 elif segment_id == 'TXI':
                     # Tax information
                     if current_invoice and len(elements) > 2:
+                        tax_type = elements[1]
                         # TXI amounts are in dollars, not cents
                         tax_amount = Decimal(elements[2])
-                        tax = {'type': elements[1], 'amount': tax_amount, 'description': 'Tax'}
-                        if current_line_item:
-                            current_line_item.add_tax(tax)
+                        # Check if amount needs to be converted from cents
+                        if '.' not in elements[2]:
+                            tax_amount = tax_amount / Decimal('100')
+                        
+                        # For McLane files with LS tax type
+                        if tax_type == 'LS':
+                            tax = {'type': tax_type, 'amount': tax_amount, 'description': 'Sales Tax'}
+                            if current_line_item:
+                                current_line_item.add_tax(tax)
+                            else:
+                                current_invoice.taxes.append(tax)
+                        # For invoice-level tax total
+                        elif tax_type == 'TX':
+                            tax = {'type': tax_type, 'amount': tax_amount, 'description': 'Total Tax'}
+                            current_invoice.total_tax = tax_amount
+                        # For other tax types
                         else:
-                            current_invoice.taxes.append(tax)
+                            tax = {'type': tax_type, 'amount': tax_amount, 'description': 'Tax'}
+                            if current_line_item:
+                                current_line_item.add_tax(tax)
+                            else:
+                                current_invoice.taxes.append(tax)
                             
-                elif segment_id == 'REF' and len(elements) > 1 and elements[1] == 'CR':
+                elif segment_id == 'REF' and len(elements) > 1 and (elements[1] == 'PG' or elements[1] == 'CR'):
                     # GL Account
                     if current_line_item:
                         current_line_item.gl_account = elements[2] if len(elements) > 2 else ""
@@ -188,20 +296,43 @@ class EDI810Parser:
                         current_invoice.gl_account = elements[2] if len(elements) > 2 else ""
 
                 elif segment_id == 'TDS':
-                    # Total invoice amount - always in cents
+                    total_amount = Decimal(elements[1])
+                    # Total invoice amount - always in cents if no decimal point found
                     if current_invoice and len(elements) > 1:
-                        total_amount = Decimal(elements[1]) / Decimal('100')
+                        if '.' in elements[1]: # leave as is
+                            pass
+                        else: # no decimal point, assume cents
+                            total_amount = Decimal(elements[1]) / Decimal('100')
+                        
+                        # Adjust total amount for credit transactions
+                        if current_invoice.transaction_type == 'CR':
+                            total_amount = -abs(total_amount)
+                            
                         current_invoice.total_amount = total_amount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
                         
                         # Verify totals match
                         calculated_total = current_invoice.calculate_total()
                         if abs(calculated_total - total_amount) > Decimal('0.02'):
                             with st.expander(f"Mismatch Details for Invoice {current_invoice.invoice_number}"):
-                                # Header with basic mismatch info
+                                # Calculate line items base total without tax
+                                line_items_base_total = sum((item.quantity * item.unit_price for item in current_invoice.line_items), Decimal('0'))
+                                line_items_allowances = sum((sum((a['amount'] for a in item.allowances), Decimal('0')) for item in current_invoice.line_items), Decimal('0'))
+                                invoice_allowances = sum((a['amount'] for a in current_invoice.allowances), Decimal('0'))
+                                
+                                # Adjust for credit transactions
+                                if current_invoice.transaction_type == 'CR':
+                                    line_items_base_total = -abs(line_items_base_total)
+                                    line_items_allowances = -abs(line_items_allowances)
+                                    invoice_allowances = -abs(invoice_allowances)
+                                
+                                subtotal_without_tax = line_items_base_total + line_items_allowances + invoice_allowances
+                                
+                                # Header with basic mismatch info and subtotal comparison
                                 st.code(f"Total Mismatch for Invoice {current_invoice.invoice_number}\n" +
                                       f"Expected (TDS): {total_amount}\n" +
                                       f"Calculated:     {calculated_total}\n" +
-                                      f"Difference:     {abs(calculated_total - total_amount)}\n")
+                                      f"Difference:     {abs(calculated_total - total_amount)}\n" +
+                                      f"Subtotal (without tax): {subtotal_without_tax}")
                                 
                                 # Detailed breakdown of line items
                                 line_items_detail = ["Line Items Breakdown:"]
@@ -210,6 +341,12 @@ class EDI810Parser:
                                     base_amount = item.quantity * item.unit_price
                                     item_allowances = sum((a['amount'] for a in item.allowances), Decimal('0'))
                                     item_taxes = sum((t['amount'] for t in item.taxes), Decimal('0'))
+                                    
+                                    if current_invoice.transaction_type == 'CR':
+                                        base_amount = -abs(base_amount)
+                                        item_allowances = -abs(item_allowances)
+                                        item_taxes = -abs(item_taxes)
+                                        
                                     line_total = base_amount + item_allowances + item_taxes
                                     line_items_subtotal += line_total
                                     
@@ -227,6 +364,10 @@ class EDI810Parser:
                                 invoice_allowances = sum((a['amount'] for a in current_invoice.allowances), Decimal('0'))
                                 invoice_taxes = sum((t['amount'] for t in current_invoice.taxes), Decimal('0'))
                                 
+                                if current_invoice.transaction_type == 'CR':
+                                    invoice_allowances = -abs(invoice_allowances)
+                                    invoice_taxes = -abs(invoice_taxes)
+                                
                                 st.code("Invoice Level Charges:\n" +
                                       f"  Allowances: {invoice_allowances}\n" +
                                       f"  Taxes: {invoice_taxes}\n")
@@ -237,7 +378,6 @@ class EDI810Parser:
                                       f"  Invoice Allowances: {invoice_allowances}\n" +
                                       f"  Invoice Taxes: {invoice_taxes}\n" +
                                       f"  Calculated Total: {calculated_total}")
-
             except Exception as e:
                 st.warning(f"Error processing segment {segment_id}: {str(e)}")
                 continue
@@ -302,9 +442,16 @@ class EDI810Parser:
         return None
 
     def invoice_to_dict(self, invoice: EDIInvoice) -> Dict:
-        """Convert invoice to dictionary for DataFrame with comprehensive totals"""
+        """
+        Convert invoice to dictionary for DataFrame with comprehensive totals
+        
+        Args:
+            invoice (EDIInvoice): The invoice to convert
+            
+        Returns:
+            Dict: Dictionary containing invoice data and calculated totals
+        """
         # Calculate line item totals
-        line_items_total = sum((item.total_amount for item in invoice.line_items), Decimal('0'))
         line_items_base = sum((item.quantity * item.unit_price for item in invoice.line_items), Decimal('0'))
         line_allowances = sum((sum((a['amount'] for a in item.allowances), Decimal('0')) for item in invoice.line_items), Decimal('0'))
         line_taxes = sum((sum((t['amount'] for t in item.taxes), Decimal('0')) for item in invoice.line_items), Decimal('0'))
@@ -313,15 +460,26 @@ class EDI810Parser:
         invoice_allowances = sum((a['amount'] for a in invoice.allowances), Decimal('0'))
         invoice_taxes = sum((t['amount'] for t in invoice.taxes), Decimal('0'))
         
+        # Handle credit transactions
+        if invoice.transaction_type == 'CR':
+            line_items_base = -abs(line_items_base)
+            line_allowances = -abs(line_allowances)
+            line_taxes = -abs(line_taxes)
+            invoice_allowances = -abs(invoice_allowances)
+            invoice_taxes = -abs(invoice_taxes)
+        
         # Total allowances and taxes (line item + invoice level)
         total_allowances = line_allowances + invoice_allowances
         total_taxes = line_taxes + invoice_taxes
+        
+        # Calculate final total amount
+        total_amount = invoice.calculate_total()
         
         return {
             'Invoice Number': invoice.invoice_number,
             'Invoice Date': invoice.invoice_date,
             'PO Number': invoice.po_number,
-            'Total Amount': float(invoice.total_amount),
+            'Total Amount': float(total_amount),
             'Line Items Subtotal': float(line_items_base),
             'Line Item Allowances': float(line_allowances),
             'Line Item Taxes': float(line_taxes),
@@ -334,16 +492,38 @@ class EDI810Parser:
             'Currency': invoice.currency,
             'Sender ID': invoice.sender_id,
             'Receiver ID': invoice.receiver_id,
-            'Control Number': invoice.interchange_control_number
+            'Control Number': invoice.interchange_control_number,
+            'Transaction Type': invoice.transaction_type
         }
 
     def get_line_items_df(self, invoices: List[EDIInvoice]) -> pd.DataFrame:
-        """Convert line items to DataFrame"""
+        """
+        Convert line items to DataFrame
+        
+        Args:
+            invoices (List[EDIInvoice]): List of invoices to convert
+            
+        Returns:
+            pd.DataFrame: DataFrame containing line item data
+        """
         rows = []
         for invoice in invoices:
             for item in invoice.line_items:
+                # Calculate base amount
+                base_amount = item.quantity * item.unit_price
+                
+                # Calculate allowances and taxes
                 allowances = sum((a['amount'] for a in item.allowances), Decimal('0'))
                 tax = sum((t['amount'] for t in item.taxes), Decimal('0'))
+                
+                # Adjust amounts for credit transactions
+                if invoice.transaction_type == 'CR':
+                    base_amount = -abs(base_amount)
+                    allowances = -abs(allowances)
+                    tax = -abs(tax)
+                
+                # Calculate net amount
+                net_amount = base_amount + allowances + tax
                 
                 row = {
                     'Invoice Number': invoice.invoice_number,
@@ -352,11 +532,12 @@ class EDI810Parser:
                     'Description': item.description,
                     'Quantity': float(item.quantity),
                     'Unit Price': float(item.unit_price),
-                    'Line Amount': float(item.quantity * item.unit_price),
+                    'Line Amount': float(base_amount),
                     'Allowances': float(allowances),
                     'Sales Tax': float(tax),
-                    'Net Amount': float(item.total_amount),
-                    'GL Account': item.gl_account
+                    'Net Amount': float(net_amount),
+                    'GL Account': item.gl_account,
+                    'Transaction Type': invoice.transaction_type
                 }
                 rows.append(row)
         return pd.DataFrame(rows)

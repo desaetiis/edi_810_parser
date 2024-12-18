@@ -249,61 +249,63 @@ local_tab, sftp_tab = st.tabs(["Local Files", "SFTP Files"])
 
 with local_tab:
     st.header("Local File Processing")
+
+
     # File uploader for local files
     uploaded_files = st.file_uploader(
         "Upload EDI files",
-        type=['txt', 'edi', '810'],
+        type=['txt', 'edi', '810', 'dat'],
         accept_multiple_files=True,
         key="local_uploader"
     )
-    
+
     if uploaded_files:
         all_invoices = []
-        
+
         # Process each file
         for uploaded_file in uploaded_files:
             st.write(f"Processing: {uploaded_file.name}")
-            
+
             try:
                 # Save uploaded file
                 file_path = save_uploaded_file(uploaded_file)
-                
+
                 # Display original EDI content
                 with st.expander("View Original EDI Content", expanded=False):
                     display_edi_content(uploaded_file.getvalue().decode(), "Original EDI Content")
-                
+
                 # Parse EDI 810
                 parser = EDI810Parser()
                 content = uploaded_file.getvalue().decode()
                 invoices = parser.parse_content(content)
-                
+
                 if not invoices:
                     raise ValueError("No valid invoices found in the EDI file")
-                
+
                 # Add invoices to the list for summary tables
                 all_invoices.extend(invoices)
-                
+
                 # Generate 997
                 config = EDI997Config()
                 generator = EDI997Generator(config)
-                
+
                 # Get segments for 997 generation
                 segments = parser.get_997_segments()
                 if not segments or not all(segments.values()):
                     raise ValueError("Could not find all required segments for 997 generation")
-                
+
                 ack_997 = generator.generate_997(
                     segments['ISA'],
                     segments['ST'],
                     segments['GS']
                 )
-                
+
                 # Display 997 content
                 with st.expander("View Generated 997", expanded=False):
                     display_edi_content(ack_997, "997 Functional Acknowledgment")
-                
+
                 st.success(f"✓ Successfully processed {uploaded_file.name}")
-                
+
                 # Download button for 997 at the bottom
                 st.download_button(
                     label="Download 997 Acknowledgment",
@@ -313,30 +315,30 @@ with local_tab:
                     key=f"997_{uploaded_file.name}"
                 )
                 st.markdown("---")
-            
+
             except Exception as e:
                 st.error(f"Error processing {uploaded_file.name}: {str(e)}")
                 logger.error(f"Error processing {uploaded_file.name}: {traceback.format_exc()}")
-        
+
         # Display summary tables if we have any invoices
         if all_invoices:
             st.markdown("### Summary Tables")
-            
+
             # Convert invoices to DataFrames
             invoices_df = pd.DataFrame([parser.invoice_to_dict(inv) for inv in all_invoices])
             line_items_df = parser.get_line_items_df(all_invoices)
-            
+
             # Display invoice summary
             st.markdown("#### Invoice Summary")
             summary_columns = [
                 'Invoice Number', 'Invoice Date', 'PO Number',
-                'Sender ID', 'Receiver ID', 'Control Number',
+                'Sender ID', 'Receiver ID', 'Control Number', 'Transaction Type',
                 'Total Amount', 'Line Items Subtotal',
                 'Total Allowances', 'Total Taxes',
                 'Vendor Name', 'Buyer Name'
             ]
             st.dataframe(invoices_df[summary_columns])
-            
+
             # Display line items
             st.markdown("#### Line Items")
             st.dataframe(line_items_df)
