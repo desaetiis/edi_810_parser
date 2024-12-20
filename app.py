@@ -144,9 +144,20 @@ def process_sftp_file(sftp, filename):
         'Sender ID', 'Receiver ID', 'Control Number',
         'Total Amount', 'Line Items Subtotal',
         'Total Allowances', 'Total Taxes',
-        'Vendor Name', 'Buyer Name'
+        'Vendor Name', 'Buyer Name', 'Ship To Name', 'Bill To Name'
     ]
-    st.dataframe(invoices_df[summary_columns])
+    
+    df_display = invoices_df[summary_columns].copy()
+    
+    # Format Total Amount with color and 2 decimal places
+    styled_df = df_display.style.format({
+        'Total Amount': '${:.2f}',
+        'Line Items Subtotal': '${:.2f}',
+        'Total Allowances': '${:.2f}',
+        'Total Taxes': '${:.2f}'
+    }).apply(lambda x: ['color: #0066cc; font-weight: bold' if col == 'Total Amount' else '' for col in df_display.columns], axis=1)
+    
+    st.dataframe(styled_df)
     
     # Display line items
     st.markdown("#### Line Items")
@@ -335,9 +346,20 @@ with local_tab:
                 'Sender ID', 'Receiver ID', 'Control Number', 'Transaction Type',
                 'Total Amount', 'Line Items Subtotal',
                 'Total Allowances', 'Total Taxes',
-                'Vendor Name', 'Buyer Name'
+                'Vendor Name', 'Buyer Name', 'Ship To Name', 'Bill To Name'
             ]
-            st.dataframe(invoices_df[summary_columns])
+            
+            df_display = invoices_df[summary_columns].copy()
+            
+            # Format Total Amount with color and 2 decimal places
+            styled_df = df_display.style.format({
+                'Total Amount': '${:.2f}',
+                'Line Items Subtotal': '${:.2f}',
+                'Total Allowances': '${:.2f}',
+                'Total Taxes': '${:.2f}'
+            }).apply(lambda x: ['color: #0066cc; font-weight: 700' if col == 'Total Amount' else '' for col in df_display.columns], axis=1)
+            
+            st.dataframe(styled_df)
 
             # Display line items
             st.markdown("#### Line Items")
