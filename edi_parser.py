@@ -89,6 +89,7 @@ class EDIInvoice:
         buyer_name (str, optional): Name of the buyer. Defaults to empty string
         ship_to_name (str, optional): Name of the ship to party. Defaults to empty string
         bill_to_name (str, optional): Name of the bill to party. Defaults to empty string
+        ship_from_name (str, optional): Name of the ship from party. Defaults to empty string
         currency (str, optional): Currency code. Defaults to "USD"
         sender_id (str, optional): Sender identifier. Defaults to empty string
         receiver_id (str, optional): Receiver identifier. Defaults to empty string
@@ -107,6 +108,7 @@ class EDIInvoice:
     buyer_name: str = ""
     ship_to_name: str = ""
     bill_to_name: str = ""
+    ship_from_name: str = ""
     currency: str = "USD"
     sender_id: str = ""
     receiver_id: str = ""
@@ -223,8 +225,10 @@ class EDI810Parser:
                             current_invoice.buyer_name = elements[2]
                         elif party_id == 'ST':  # Ship To Party
                             current_invoice.ship_to_name = elements[2]
-                        elif party_id == 'BT' or party_id == 'SF':  # Bill To Party or Ship From (can be used as Bill To)
+                        elif party_id == 'BT':  # Bill To Party
                             current_invoice.bill_to_name = elements[2]
+                        elif party_id == 'SF':  # Ship From Party
+                            current_invoice.ship_from_name = elements[2]
                             
                 elif segment_id == 'IT1':
                     if current_invoice:
@@ -485,19 +489,18 @@ class EDI810Parser:
 
         return {
             'Invoice Number': invoice.invoice_number,
-            'Control Number': invoice.interchange_control_number,
             'Invoice Date': invoice.invoice_date,
             'PO Number': invoice.po_number,
             'Total Amount': float(total_amount),
             'Line Items Subtotal': float(line_items_base),
-            'Line Item Allowances': float(line_allowances),
-            'Invoice Allowances': float(invoice_allowances),
             'Total Allowances': float(total_allowances),
             'Total Taxes': float(total_taxes),
+            'Control Number': invoice.interchange_control_number,
             'Vendor Name': invoice.vendor_name,
             'Buyer Name': invoice.buyer_name,
             'Ship To Name': invoice.ship_to_name,
             'Bill To Name': invoice.bill_to_name,
+            'Ship From Name': invoice.ship_from_name,
             'Currency': invoice.currency,
             'Sender ID': invoice.sender_id,
             'Receiver ID': invoice.receiver_id,

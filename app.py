@@ -140,12 +140,12 @@ def process_sftp_file(sftp, filename):
     # Display invoice summary
     st.markdown("#### Invoice Summary")
     summary_columns = [
-        'Invoice Number', 'Invoice Date', 'PO Number',
-        'Sender ID', 'Receiver ID', 'Control Number',
-        'Total Amount', 'Line Items Subtotal',
-        'Total Allowances', 'Total Taxes',
-        'Vendor Name', 'Buyer Name', 'Ship To Name', 'Bill To Name'
-    ]
+    'Invoice Number', 'Invoice Date', 'PO Number',
+    'Sender ID', 'Receiver ID', 'Control Number',
+    'Total Amount', 'Line Items Subtotal',
+    'Total Allowances', 'Total Taxes',
+    'Vendor Name', 'Buyer Name', 'Ship To Name', 'Bill To Name', 'Ship From Name'  # Add 'Ship From Name' here
+]
     
     df_display = invoices_df[summary_columns].copy()
     
@@ -342,12 +342,12 @@ with local_tab:
             # Display invoice summary
             st.markdown("#### Invoice Summary")
             summary_columns = [
-                'Invoice Number', 'Invoice Date', 'PO Number',
-                'Sender ID', 'Receiver ID', 'Control Number', 'Transaction Type',
-                'Total Amount', 'Line Items Subtotal',
-                'Total Allowances', 'Total Taxes',
-                'Vendor Name', 'Buyer Name', 'Ship To Name', 'Bill To Name'
-            ]
+    'Invoice Number', 'Invoice Date', 'PO Number',
+    'Sender ID', 'Receiver ID', 'Control Number', 'Transaction Type',
+    'Total Amount', 'Line Items Subtotal',
+    'Total Allowances', 'Total Taxes',
+    'Vendor Name', 'Buyer Name', 'Ship To Name', 'Bill To Name', 'Ship From Name'  # Add 'Ship From Name' here
+]
             
             df_display = invoices_df[summary_columns].copy()
             
