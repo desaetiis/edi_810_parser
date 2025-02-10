@@ -119,6 +119,7 @@ class EDIInvoice:
     gl_account: str = ""
     transaction_type: str = ""
     total_tax: Decimal = field(default=Decimal('0'), init=False)
+    tds_discount: Decimal = Decimal('0')
 
     def calculate_total(self) -> Decimal:
         """
@@ -502,8 +503,8 @@ class EDI810Parser:
             'Total Amount': float(total_amount),
             'Line Items Subtotal': float(line_items_base),
             'Total Allowances': float(total_allowances),
-            'Total Discounts': float(invoice_allowances),
             'Total Taxes': float(total_taxes),
+            'TDS Discount': float(invoice.tds_discount),
             'Control Number': invoice.interchange_control_number,
             'Vendor Name': invoice.vendor_name,
             'Buyer Name': invoice.buyer_name,
