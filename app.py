@@ -143,7 +143,7 @@ def process_sftp_file(sftp, filename):
     'Invoice Number', 'Invoice Date', 'PO Number',
     'Sender ID', 'Receiver ID', 'Control Number',
     'Total Amount', 'Line Items Subtotal',
-    'Total Allowances', 'Total Taxes', 'Total TDS Discounts',
+    'Total Allowances', 'Total Taxes',
     'Vendor Name', 'Buyer Name', 'Ship To Name', 'Bill To Name', 'Ship From Name'  # Add 'Ship From Name' here
 ]
     
@@ -154,7 +154,6 @@ def process_sftp_file(sftp, filename):
         'Total Amount': '${:.2f}',
         'Line Items Subtotal': '${:.2f}',
         'Total Allowances': '${:.2f}',
-        'Total TDS Discounts': '${:.2f}',
         'Total Taxes': '${:.2f}'
     }).apply(lambda x: ['color: #0066cc; font-weight: bold' if col == 'Total Amount' else '' for col in df_display.columns], axis=1)
     
