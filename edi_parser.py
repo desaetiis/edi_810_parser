@@ -373,20 +373,24 @@ class EDI810Parser:
                                 
                                 # Invoice level charges
                                 invoice_allowances = sum((a['amount'] for a in current_invoice.allowances), Decimal('0'))
+                                invoice_discounts = tds_discount
                                 invoice_taxes = sum((t['amount'] for t in current_invoice.taxes), Decimal('0'))
                                 
                                 if current_invoice.transaction_type == 'CR':
                                     invoice_allowances = -abs(invoice_allowances)
+                                    invoice_discounts = -abs(invoice_discounts)
                                     invoice_taxes = -abs(invoice_taxes)
                                 
                                 st.code("Invoice Level Charges:\n" +
                                       f"  Allowances: {invoice_allowances}\n" +
+                                        f"  Discounts: {invoice_discounts}\n" +
                                       f"  Taxes: {invoice_taxes}\n")
                                 
                                 # Final calculation breakdown
                                 st.code("Final Calculation:\n" +
                                       f"  Line Items Subtotal: {line_items_subtotal}\n" +
                                       f"  Invoice Allowances: {invoice_allowances}\n" +
+                                      f"  Invoice discounts: {invoice_discounts}\n" +
                                       f"  Invoice Taxes: {invoice_taxes}\n" +
                                       f"  Calculated Total: {calculated_total}")
             except Exception as e:
