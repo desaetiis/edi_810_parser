@@ -302,7 +302,7 @@ class EDI810Parser:
 
                 elif segment_id == 'TDS':
                     total_amount = Decimal(elements[1])
-                    tds_discount = elements[4] if len(elements) > 3
+                    tds_discount = elements[4] if len(elements) > 3 else '0'
                     # Total invoice amount - always in cents if no decimal point found
                     if current_invoice and len(elements) > 1:
                         if '.' in elements[1]: # leave as is
