@@ -119,7 +119,7 @@ class EDIInvoice:
     gl_account: str = ""
     transaction_type: str = ""
     total_tax: Decimal = field(default=Decimal('0'), init=False)
-    tds_discount: Decimal = Decimal('0')
+    tds_discount: Decimal = field(default=Decimal('0'), init=False)
 
     def calculate_total(self) -> Decimal:
         """
@@ -303,16 +303,14 @@ class EDI810Parser:
 
                 elif segment_id == 'TDS':
                     total_amount = Decimal(elements[1])
-                    tds_discount = elements[4] if len(elements) > 3 else '0'
+                    tds_discount = Decimal(elements[4]) if len(elements) > 4 else Decimal('0')
                     # Total invoice amount - always in cents if no decimal point found
                     if current_invoice and len(elements) > 1:
                         if '.' in elements[1]: # leave as is
                             pass
                         else: # no decimal point, assume cents
                             total_amount = Decimal(elements[1]) / Decimal('100')
-                        # Adjust for discount
-                        if tds_discount > '0':
-                            current_invoice.allowances.append(Decimal(tds_discount))
+                        current_invoice.tds_discount = tds_discount
                         
                         # Adjust total amount for credit transactions
                         if current_invoice.transaction_type == 'CR':
@@ -373,7 +371,7 @@ class EDI810Parser:
                                 
                                 # Invoice level charges
                                 invoice_allowances = sum((a['amount'] for a in current_invoice.allowances), Decimal('0'))
-                                invoice_discounts = tds_discount
+                                invoice_discounts = sum((d['amount'] for d in current_invoice.discounts), Decimal('0'))
                                 invoice_taxes = sum((t['amount'] for t in current_invoice.taxes), Decimal('0'))
                                 
                                 if current_invoice.transaction_type == 'CR':
