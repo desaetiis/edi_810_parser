@@ -312,7 +312,7 @@ class EDI810Parser:
                             tds_discount = Decimal(elements[4]) / Decimal('100') if len(elements) > 3 else Decimal('0')
                         # Adjust for discount
                         if tds_discount > Decimal('0'):
-                            total_amount -= tds_discount
+                            current_invoice.allowances.append(tds_discount)
                         
                         # Adjust total amount for credit transactions
                         if current_invoice.transaction_type == 'CR':
@@ -503,6 +503,7 @@ class EDI810Parser:
             'Total Amount': float(total_amount),
             'Line Items Subtotal': float(line_items_base),
             'Total Allowances': float(total_allowances),
+            'Total Discounts': float(invoice_allowances),
             'Total Taxes': float(total_taxes),
             'Control Number': invoice.interchange_control_number,
             'Vendor Name': invoice.vendor_name,
