@@ -310,8 +310,8 @@ class EDI810Parser:
                         else: # no decimal point, assume cents
                             total_amount = Decimal(elements[1]) / Decimal('100')
                         # Adjust for discount
-                        if tds_discount > Decimal('0'):
-                            current_invoice.allowances.append(tds_discount)
+                        if tds_discount > '0':
+                            current_invoice.allowances.append(Decimal(tds_discount))
                         
                         # Adjust total amount for credit transactions
                         if current_invoice.transaction_type == 'CR':
